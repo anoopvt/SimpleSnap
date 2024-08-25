@@ -1,5 +1,7 @@
 package com.anoopvt.simplesnap
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -11,37 +13,42 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import com.anoopvt.simplesnap.presentation.CameraScreen
 import com.anoopvt.simplesnap.ui.theme.SimpleSnapTheme
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        if (arePermissionGranted().not()) {
+            ActivityCompat.requestPermissions(this, CAMERA_PERMISSIONS, 100)
+        }
+
         setContent {
             SimpleSnapTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                CameraScreen(activity = this)
             }
         }
     }
-}
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
+    fun arePermissionGranted(): Boolean {
+        return CAMERA_PERMISSIONS.all { permission ->
+            ContextCompat.checkSelfPermission(
+                applicationContext,
+                permission
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+    }
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    SimpleSnapTheme {
-        Greeting("Android")
+    companion object {
+        val CAMERA_PERMISSIONS = arrayOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO
+        )
     }
 }

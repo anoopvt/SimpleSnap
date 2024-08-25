@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.anoopvt.simplesnap"
-        minSdk = 24
+        minSdk = 29
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -73,6 +73,9 @@ dependencies {
     //Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+    ksp(libs.hilt.androidx)
+    implementation(libs.hilt.navigation.compose)
+
 
     //Camerax
     implementation(libs.androidx.camera.core)
@@ -81,6 +84,9 @@ dependencies {
     implementation(libs.androidx.camera.video)
     implementation(libs.androidx.camera.view)
     implementation(libs.androidx.camera.extensions)
+
+    //Material Icons
+    implementation(libs.material.icons.extended)
 
 }
 
