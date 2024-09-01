@@ -12,6 +12,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.video.FileOutputOptions
 import androidx.camera.video.Recording
@@ -24,33 +25,57 @@ import com.anoopvt.simplesnap.domain.repository.CameraRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 class CameraRepositoryImpl @Inject constructor(private val application: Application) :
     CameraRepository {
 
     private var recording: Recording? = null
 
-    override suspend fun takePhoto(controller: LifecycleCameraController) {
-        controller.takePicture(ContextCompat.getMainExecutor(application),
-            object : ImageCapture.OnImageCapturedCallback() {
-                override fun onCaptureSuccess(image: ImageProxy) {
-                    super.onCaptureSuccess(image)
+    override suspend fun takePhoto(controller: LifecycleCameraController): Bitmap? {
+        return suspendCancellableCoroutine { continuation ->
+            controller.takePicture(ContextCompat.getMainExecutor(application),
+                object : ImageCapture.OnImageCapturedCallback() {
+                    override fun onCaptureSuccess(image: ImageProxy) {
+                        super.onCaptureSuccess(image)
 
-                    val matrix = Matrix().apply {
-                        postRotate(image.imageInfo.rotationDegrees.toFloat())
-                    }
-                    val imageBitmap = Bitmap.createBitmap(
-                        image.toBitmap(), 0, 0, image.width, image.height, matrix, true
-                    )
+                        try {
+                            val matrix = Matrix().apply {
+                                postRotate(image.imageInfo.rotationDegrees.toFloat())
+                            }
+                            val imageBitmap = Bitmap.createBitmap(
+                                image.toBitmap(), 0, 0, image.width, image.height, matrix, true
+                            )
 
-                    CoroutineScope(Dispatchers.IO).launch {
-                        savePhoto(imageBitmap)
+                            // Close the image to prevent memory leaks
+                            image.close()
+
+                            // Resume the coroutine with the captured bitmap
+                            continuation.resume(imageBitmap)
+
+                            // Optionally save the photo in a background thread
+                            CoroutineScope(Dispatchers.IO).launch {
+                                savePhoto(imageBitmap)
+                            }
+
+                        } catch (e: Exception) {
+                            // If there's an error, close the image and resume with an exception
+                            image.close()
+                            continuation.resumeWithException(e)
+                        }
                     }
-                }
-            })
+
+                    override fun onError(exception: ImageCaptureException) {
+                        // Resume the coroutine with the exception if capturing fails
+                        continuation.resumeWithException(exception)
+                    }
+                })
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -63,8 +88,7 @@ class CameraRepositoryImpl @Inject constructor(private val application: Applicat
 
         val timeInMillis = System.currentTimeMillis()
         val file = File(
-            application.filesDir,
-            "${timeInMillis}_video" + ".mp4"
+            application.filesDir, "${timeInMillis}_video" + ".mp4"
         )
 
 
