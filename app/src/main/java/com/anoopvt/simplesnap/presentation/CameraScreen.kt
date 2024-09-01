@@ -7,6 +7,8 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,8 +34,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +49,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.anoopvt.simplesnap.MainActivity
 import com.anoopvt.simplesnap.R
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun CameraScreen(activity: Activity) {
@@ -136,26 +144,11 @@ fun CameraScreen(activity: Activity) {
 
             Spacer(modifier = Modifier.width(1.dp))
 
-            Box(
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .size(60.dp)
-                    .background(MaterialTheme.colorScheme.primary)
-                    .clickable {
-                        if ((activity as MainActivity).arePermissionGranted()) {
-                            cameraViewModel.onTakePhoto(controller)
-                        }
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-
-                Icon(
-                    imageVector = Icons.Default.Camera,
-                    contentDescription = stringResource(R.string.take_photo),
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(26.dp)
-                )
-            }
+            CameraButton(onClick = {
+                if ((activity as MainActivity).arePermissionGranted()) {
+                    cameraViewModel.onTakePhoto(controller)
+                }
+            })
 
             Spacer(modifier = Modifier.width(1.dp))
 
@@ -185,5 +178,40 @@ fun CameraScreen(activity: Activity) {
             }
 
         }
+    }
+}
+
+
+@Composable
+fun CameraButton(onClick: () -> Unit) {
+    var isClicked by remember { mutableStateOf(false) }
+
+    val iconSize by animateDpAsState(
+        targetValue = if (isClicked) 36.dp else 26.dp,
+        animationSpec = tween(durationMillis = 100), label = ""
+    )
+
+    Box(
+        modifier = Modifier
+            .clip(CircleShape)
+            .size(60.dp)
+            .background(MaterialTheme.colorScheme.primary)
+            .clickable {
+                CoroutineScope(Dispatchers.Main).launch {
+                    isClicked = true
+                    delay(100)
+                    onClick()
+                    isClicked = false
+                }
+
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Default.Camera,
+            contentDescription = stringResource(R.string.take_photo),
+            tint = MaterialTheme.colorScheme.onPrimary,
+            modifier = Modifier.size(iconSize)
+        )
     }
 }
